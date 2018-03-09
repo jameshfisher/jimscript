@@ -116,8 +116,8 @@ eval vars (EBinOp op e1 e2) = do
 eval vars (ENot e) = do
   (v, vars') <- eval vars e
   case v of
-    0 -> return (1, vars)
-    _ -> return (0, vars)
+    0 -> return (1, vars')
+    _ -> return (0, vars')
 eval vars (EGet var) = case Map.lookup var vars of
   Nothing -> error $ "no such variable: " ++ var
   Just x -> return (x, vars)
