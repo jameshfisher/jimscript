@@ -1,0 +1,9 @@
+#!/usr/bin/env jimscript
+(set c (read))
+(while (not (= (get c) (- 1)))
+  (write (if (and
+                (<= 'a' (get c))
+                (<= (get c) 'z'))
+            (- (get c) (- 'a' 'A'))
+            (get c)))
+  (set c (read)))

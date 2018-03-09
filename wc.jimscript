@@ -1,0 +1,25 @@
+#!/usr/bin/env jimscript
+
+(set cc 0)
+(set wc 0)
+
+(while (not (= (set c (read)) (- 1)))
+  (set cc (+ (get cc) 1))
+  (if (= (get c) ' ')
+    (set wc (+ (get wc) 1))
+    (skip)))
+
+# crappy way to write integers!
+(set d 10000)
+(while (not (= (get cc) 0))
+  (write (+ '0' (/ (get cc) (get d))))
+  (set cc (% (get cc) (get d)))
+  (set d (/ (get d) 10)))
+(write '\n')
+
+(set d 10000)
+(while (not (= (get wc) 0))
+  (write (+ '0' (/ (get wc) (get d))))
+  (set wc (% (get wc) (get d)))
+  (set d (/ (get d) 10)))
+(write '\n')

@@ -1,0 +1,8 @@
+#!/usr/bin/env jimscript
+(set lines-done 0)
+(while (< (get lines-done) 5) (seq
+  (set char (read))
+  (write (get char))
+  (if (= (get char) '\n')
+    (set lines-done (+ (get lines-done) 1))
+    (skip))))
