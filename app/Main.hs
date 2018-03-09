@@ -8,7 +8,12 @@ import qualified Control.Exception as Exception
 import qualified Foreign.C.Types
 import qualified System.Environment as Environment
 
-data T = TOpen | TClose | TSymbol String | TInt Int deriving (Show)
+data T 
+  = TOpen
+  | TClose
+  | TSymbol String
+  | TInt Int
+  deriving (Show)
 
 tokenize :: String -> [T]
 tokenize [] = []
@@ -27,28 +32,28 @@ tokenize (c : cs)
 
 isSymbolChar c = Char.isAlphaNum c || elem c "=+<-/%"
 
-data R
-  = RList [R]
-  | RSymbol String
-  | RInt Int
+data N
+  = NList [N]
+  | NSymbol String
+  | NInt Int
   deriving (Show)
 
-parseOne :: [T] -> ([R], [T])
-parseOne []               = ([], [])
-parseOne (TOpen     : ts) = let (rs, ts') = parseMany [] ts in ([RList rs], ts')
-parseOne (TSymbol s : ts) = ([RSymbol s], ts)
-parseOne (TInt i    : ts) = ([RInt i], ts)
-parseOne (TClose    : ts) = ([], ts)
+nestOne :: [T] -> ([N], [T])
+nestOne []               = ([], [])
+nestOne (TOpen     : ts) = let (ns, ts') = nestMany [] ts in ([NList ns], ts')
+nestOne (TSymbol s : ts) = ([NSymbol s], ts)
+nestOne (TInt i    : ts) = ([NInt i], ts)
+nestOne (TClose    : ts) = ([], ts)
 
-parseMany :: [R] -> [T] -> ([R], [T])
-parseMany prev ts = case parseOne ts of
+nestMany :: [N] -> [T] -> ([N], [T])
+nestMany prev ts = case nestOne ts of
   ([], ts') -> (prev , ts')
-  (rs, ts') -> parseMany (prev++rs) ts'
+  (ns, ts') -> nestMany (prev++ns) ts'
 
-parseR :: [T] -> R
-parseR ts = case parseOne ts of
-  ([r], []) -> r
-  _ -> error "unexpected content after rose tree"
+nest :: [T] -> N
+nest ts = case nestMany [] ts of
+  (ns, []) -> NList $ NSymbol "seq" : ns
+  _ -> error "unexpected content"
 
 data E =
   -- literals
@@ -70,32 +75,33 @@ data E =
   | EReadByte
   deriving (Show)
 
-data Op = Add | Sub | Div | Mod | Eq | Lt | Lte | And
+data Op = Add | Sub | Div | Mod | Eq | Neq | Lt | Lte | And
   deriving (Show)
 
-parseE :: R -> E
-parseE (RInt i) = EInt i
-parseE (RList [RSymbol "-", RInt i]) = EInt $ negate i
-parseE (RList [RSymbol "+", a, b]) = EBinOp Add (parseE a) (parseE b)
-parseE (RList [RSymbol "-", a, b]) = EBinOp Sub (parseE a) (parseE b)
-parseE (RList [RSymbol "/", a, b]) = EBinOp Div (parseE a) (parseE b)
-parseE (RList [RSymbol "%", a, b]) = EBinOp Mod (parseE a) (parseE b)
-parseE (RList [RSymbol "=", a, b]) = EBinOp Eq (parseE a) (parseE b)
-parseE (RList [RSymbol "<", a, b]) = EBinOp Lt (parseE a) (parseE b)
-parseE (RList [RSymbol "<=", a, b]) = EBinOp Lte (parseE a) (parseE b)
-parseE (RList [RSymbol "and", a, b]) = EBinOp And (parseE a) (parseE b)
-parseE (RList [RSymbol "not", a]) = ENot (parseE a)
-parseE (RList [RSymbol "get", RSymbol a]) = EGet a
-parseE (RList [RSymbol "set", RSymbol a, b]) = ESet a (parseE b)
-parseE (RList [RSymbol "if", a, b, c]) = EIf (parseE a) (parseE b) (parseE c)
-parseE (RList (RSymbol "seq" : xs)) = foldr1 ESeq $ map parseE xs
-parseE (RList (RSymbol "while" : a : bs)) = EWhile (parseE a) (foldr1 ESeq $ map parseE bs)
-parseE (RList [RSymbol "do-while", a, b]) = EDoWhile (parseE a) (parseE b)
-parseE (RList [RSymbol "skip"]) = ESkip
-parseE (RList [RSymbol "write", a]) = EWriteByte (parseE a)
-parseE (RList [RSymbol "read"]) = EReadByte
-parseE (RSymbol a) = EGet a
-parseE r = error $ "did not match: " ++ show r
+parse :: N -> E
+parse (NInt i) = EInt i
+parse (NList [NSymbol "-", NInt i]) = EInt $ negate i
+parse (NList [NSymbol "+", a, b]) = EBinOp Add (parse a) (parse b)
+parse (NList [NSymbol "-", a, b]) = EBinOp Sub (parse a) (parse b)
+parse (NList [NSymbol "/", a, b]) = EBinOp Div (parse a) (parse b)
+parse (NList [NSymbol "%", a, b]) = EBinOp Mod (parse a) (parse b)
+parse (NList [NSymbol "=", a, b]) = EBinOp Eq (parse a) (parse b)
+parse (NList [NSymbol "!=", a, b]) = EBinOp Neq (parse a) (parse b)
+parse (NList [NSymbol "<", a, b]) = EBinOp Lt (parse a) (parse b)
+parse (NList [NSymbol "<=", a, b]) = EBinOp Lte (parse a) (parse b)
+parse (NList [NSymbol "and", a, b]) = EBinOp And (parse a) (parse b)
+parse (NList [NSymbol "not", a]) = ENot (parse a)
+parse (NList [NSymbol "get", NSymbol a]) = EGet a
+parse (NList [NSymbol "set", NSymbol a, b]) = ESet a (parse b)
+parse (NList [NSymbol "if", a, b, c]) = EIf (parse a) (parse b) (parse c)
+parse (NList (NSymbol "seq" : xs)) = foldr1 ESeq $ map parse xs
+parse (NList (NSymbol "while" : a : bs)) = EWhile (parse a) (foldr1 ESeq $ map parse bs)
+parse (NList [NSymbol "do-while", a, b]) = EDoWhile (parse a) (parse b)
+parse (NList [NSymbol "skip"]) = ESkip
+parse (NList [NSymbol "write", a]) = EWriteByte (parse a)
+parse (NList [NSymbol "read"]) = EReadByte
+parse (NSymbol a) = EGet a
+parse r = error $ "did not match: " ++ show r
 
 evalOp :: Op -> Int -> Int -> Int
 evalOp Add a b = a + b
@@ -103,6 +109,7 @@ evalOp Sub a b = a - b
 evalOp Div a b = a `div` b
 evalOp Mod a b = a `mod` b
 evalOp Eq a b = if a == b then 1 else 0
+evalOp Neq a b = if a /= b then 1 else 0
 evalOp Lt a b = if a < b then 1 else 0
 evalOp Lte a b = if a <= b then 1 else 0
 evalOp And a b = if a == 0 || b == 0 then 0 else 1
@@ -167,8 +174,7 @@ main :: IO ()
 main = do
   (f:_) <- Environment.getArgs
   script <- readFile f
-  let tokens = tokenize script
-  let (rs, []) = parseMany [] tokens
-  let e = foldr1 ESeq $ map parseE rs
+  let e = parse . nest . tokenize $ script
+  print e
   eval Map.empty e
   return ()
