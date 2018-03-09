@@ -1,5 +1,5 @@
 (seq
   (set x 1)
-  (while (not (= (get x) 27)) (seq
-    (write (+ (get x) 64))
-    (set x (+ (get x) 1)))))
+  (while (not (= x 27)) (seq
+    (write (+ x 64))
+    (set x (+ x 1)))))

@@ -94,6 +94,7 @@ parseE (RList [RSymbol "do-while", a, b]) = EDoWhile (parseE a) (parseE b)
 parseE (RList [RSymbol "skip"]) = ESkip
 parseE (RList [RSymbol "write", a]) = EWriteByte (parseE a)
 parseE (RList [RSymbol "read"]) = EReadByte
+parseE (RSymbol a) = EGet a
 parseE r = error $ "did not match: " ++ show r
 
 evalOp :: Op -> Int -> Int -> Int
